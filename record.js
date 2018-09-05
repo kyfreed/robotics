@@ -57,6 +57,7 @@ function setHash(newhash) {
 		onHashChange();
 	} else {
 		location.hash = newhash;
+//                onHashChange();
 	}
 }
 function getState(){
