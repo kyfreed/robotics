@@ -38,7 +38,7 @@ $(document).ready(function () {
 		}
 		time += ":" + (now.getMinutes()<10 ? "0" : "") + now.getMinutes();
         $("#time").val(time);
-        $("#team_number").val(753);
+        $("#team_number").val(location.hash.split("/")[1] || 753);
     } else {
         $("#time").val(decodeURI(location.hash.split("/")[2]));
         $("#team_number").val(location.hash.split("/")[1]);
@@ -48,16 +48,17 @@ $(document).ready(function () {
 function setState(state) {
     document.body.className = state;
 	if (state=="blank") {
-		location.hash = '/' + $('#team_number').val();
+		location.hash = '/' + $('#team_number').val() + '/' + $("#time").val();
 	}
 }
 function setHash(newhash) {
-	newhash = "#" + newhash;
+	console.log(newhash);
+        newhash = "#" + newhash;
 	if (location.hash == newhash) {
 		onHashChange();
 	} else {
 		location.hash = newhash;
-//                onHashChange();
+                //onHashChange();
 	}
 }
 function getState(){
@@ -66,12 +67,6 @@ function getState(){
 function onHashChange() {
     $("#team_number").val("");
     var hash = decodeURI(location.hash).split("/");
-    if (hash[1] && hash[1].length) {
-        $("#team_number").val(hash[1]);
-    }
-    if (hash[2] && hash[2].length) {
-        $("#time").val(hash[2]);
-    }
 	$("#team_number").val(hash[1] || "");
 	$("#time").val(hash[2] || "");
 	setState("blank");
