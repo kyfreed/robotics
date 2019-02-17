@@ -158,6 +158,7 @@ function send() {
 		return;
 	}
     var db = getDB();
+    console.log(db);
     $.each(db, function (key, value) {
         jsonvalue = JSON.stringify(value);
         $.post("save.php", {info: jsonvalue},function(){

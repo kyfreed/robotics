@@ -20,7 +20,6 @@ foreach ($info as $name=>$value) {
                                . "WHERE action_id=" . Sql::val($name)
                                . " AND team_number=" . Sql::val($team)
                                . " AND match_number=" . Sql::val($time));
-        echo $max . "\n";
         if ($max) {
             Sql::query("UPDATE match_team_actions "
                      . "SET earned=" . Sql::val($value) 
