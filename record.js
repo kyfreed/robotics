@@ -161,6 +161,7 @@ function send() {
     console.log(db);
     $.each(db, function (key, value) {
         jsonvalue = JSON.stringify(value);
+        console.log(jsonvalue);
         $.post("save.php", {info: jsonvalue},function(){
             var ldb = getDB();
             delete ldb[key];
