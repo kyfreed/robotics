@@ -21,14 +21,14 @@ foreach ($info as $name=>$value) {
                                . " AND team_number=" . Sql::val($team)
                                . " AND match_number=" . Sql::val($time));
         if ($max) {
-            Sql::query("UPDATE match_team_actions "
+            Sql::exec("UPDATE match_team_actions "
                      . "SET earned=" . Sql::val($value) 
                      . ",side=" . Sql::val($side) 
                      . " WHERE action_id=" . Sql::val($name) 
                      . " AND team_number=" . Sql::val($team) 
                      . " AND match_number=" . Sql::val($time));
         } else {
-            Sql::query("INSERT INTO match_team_actions (team_number,match_number,earned,action_id,side) "
+            Sql::exec("INSERT INTO match_team_actions (team_number,match_number,earned,action_id,side) "
                      . "VALUES (" . Sql::val($team) . "," . Sql::val($time) . "," . Sql::val($value) . "," . Sql::val($name) . "," . Sql::val($side) . ")");
         }
     }

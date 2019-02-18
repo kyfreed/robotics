@@ -114,7 +114,10 @@ class Sql {
 					 $msg = mysqli_error(self::getPDO());
 					 $msg = str_replace('You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use', 'SQL error', $msg);
 					 throw new Exception($msg);
-				}
+				} else if($rid === true){
+                                    return [];
+                                }
+                        
 			while ($row = $rid->fetch_assoc()) {
 				$results[] = $row;
 			}
