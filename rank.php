@@ -24,7 +24,6 @@ $data = Sql::query("
 			 GROUP BY mta.team_number, mta.action_id) as botstats
 			JOIN actions a ON a.id = botstats.action_id
 			LEFT OUTER JOIN taken t ON botstats.team_number = t.team_number
-	 WHERE ifnull(t.taken,0) = 0
 	 GROUP BY botstats.team_number, heading
 	 ORDER BY botstats.team_number, order_by
 ");
