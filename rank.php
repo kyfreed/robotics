@@ -8,37 +8,60 @@ $PAGE->addHead('<script src="inc/jquery/jquery-3.3.1.js"></script>');
 
 $ahead = array();
 $data = Sql::query("
-SELECT team_number, taken,
-             round(avg(CASE WHEN recent <=2 THEN boxes_moved ELSE NULL END), 1) as boxes_score,
-             count(*) as num_matches,
-             round(avg(climbed)*100) as climbed_pct,
-             round(avg(crossed_baseline)*100) as baseline_pct,
-			 max(scale) as max_scale,
-			 avg(scale) as avg_scale,
-			 max(exchange) as max_exchange,
-			 avg(exchange) as avg_exchange
-  FROM (
-	SELECT mta.team_number, match_number, max(t.taken) as taken
-	       , max(CASE a.id WHEN 5 THEN earned ELSE null END) as crossed_baseline
-	       , max(CASE a.id WHEN 9 THEN earned ELSE null END) as climbed
-	       , max(CASE a.id WHEN 4 THEN earned ELSE null END) as scale
-	       , max(CASE a.id WHEN 8 THEN earned ELSE null END) as exchange
-	       , sum(case when a.name like '%[]%' then earned else null end)
-	         + sum(case WHEN a.id IN (6,7) then earned else null end) as boxes_moved
-	       , floor((SELECT ifnull(count(DISTINCT mta2.match_number),0)
-	            FROM match_team_actions mta2
-	           WHERE mta2.team_number = mta.team_number
-	             AND mta2.match_number > mta.match_number)/3)+1 as recent
-	  FROM match_team_actions mta JOIN actions a ON mta.action_id = a.id
-               LEFT OUTER JOIN taken t ON mta.team_number = t.team_number
-	 GROUP BY team_number, match_number
-	 ORDER BY mta.team_number, match_number
-   ) as x
-GROUP BY team_number, taken
-ORDER BY boxes_score desc, climbed_pct desc, baseline_pct desc
+SELECT team_number, count(*) as num_matches, ranking_heading, taken, type,
+       min(earned) as min_earned,
+       avg(earned) as avg_earned,
+       max(earned) as max_earned
+  FROM (SELECT mta.team_number, max(t.taken) as taken, max(a.type) as type,
+			   a.ranking_heading, min(a.order_by) as order_by, sum(mta.earned) as earned
+		  FROM match_team_actions mta
+			   JOIN actions a ON mta.action_id = a.id
+			   LEFT OUTER JOIN taken t ON mta.team_number = t.team_number
+		 WHERE ifnull(a.ranking_heading,'') != ''
+		 GROUP BY mta.team_number, mta.match_number, a.ranking_heading
+		)  as x
+ GROUP BY team_number, ranking_heading
+ ORDER BY team_number, order_by
 ");
+
+$rank = 1; // Init counter
+
+// Calculate scale of each value based on a curve
+$headings = []; // Key is heading text, value is max ever seen
+
+foreach ($data as $i => $record) {
+	if (empty($headings[ $record['ranking_heading'] ])) { // init the heading entry
+		$headings[ $record['ranking_heading'] ] = 0;
+	}
+	if ($headings[ $record['ranking_heading'] ] < $record['max_earned']) {
+		$headings[ $record['ranking_heading'] ] = $record['max_earned'];
+	}
+}
+
+
+function isFirstHeading($heading) {
+	GLOBAL $headings;
+	return array_keys($headings)[0] == $heading;
+}
+function isLastHeading($heading) {
+	GLOBAL $headings;
+	return array_pop(array_keys($headings)) == $heading;
+}
+function valueToLeft($heading, $value) {
+	GLOBAL $headings;
+	$max = $headings[$heading];
+	return round(100 * $value / $max, 1) . '%';
+}
+function valueToRight($heading, $value) {
+	$wrong = str_replace('%','',valueToLeft($heading, $value));
+	return (100 - $wrong) . '%';
+}
+//prd('headings', $headings, array_keys($headings), isLastHeading('Cargo Ship'), isLastHeading('Rocket 3'));
+
+
 ?>
 <style>
+	body { margin:6px; }
     .meter {
         background-color: aqua;
         position: absolute;
@@ -53,78 +76,70 @@ ORDER BY boxes_score desc, climbed_pct desc, baseline_pct desc
     }
     table, th, td {
         border: 1px solid #ddd;
-    }
-    table td {
-        padding: 3px;
+        padding: 3px 6px;
     }
 
+	.min, .avg, .max, .pct { position: absolute; top:0; bottom:0; z-index:-1; }
+	.min { background-color: #ff3333; }
+	.avg { background-color: #ff6600; }
+	.max { background-color: #00cc00; }
+	.pct { background-color: #00cc00; }
 </style>
-<table style="float:left;">
-    <tr>
-        <td>Taken</td>
-        <td>#</td>
-        <th>Team</th>
-        <th>Box score</th>
-        <th>Climb</th>
-        <th>Cross Line</th>
-        <th>--Scale--</th>
-        <th>-Exchange-</th>
-    </tr>
-    <?php
-    foreach ($data as $i => $record) {
-        if (array_search($record['team_number'], $ahead) !== false) {
-            //echo 'style="background-color:pink"';
-            continue;
-        }
-        ?>	
-        <tr>
-            <td><input type="checkbox" value=<?= $record['team_number'] ?> class="taken"
-                       <?= $record['taken'] == "1" ? "checked" : "" ?>></td>
-            <td><?= $i + 1 ?></td>
-            <td><?= $record['team_number'] ?></td>
+<table style="width:100%">
+	<tr>
+		<th>Taken</th>
+		<th>Rank</th>
+		<th>N</th>
+		<th>Team</th>
+		<?php foreach ($headings as $heading => $max) { ?>
+			<th><?= $heading ?></th>
+		<?php } ?>
+	</tr>
+<?php foreach ($data as $i => $record) { ?>
+	<?php if (isFirstHeading($record['ranking_heading'])) { ?>
+		<tr>
+            <td style="text-align:center;">
+				<input type="checkbox" value=<?= $record['team_number'] ?> class="taken"
+                       <?= $record['taken'] == "1" ? "checked" : "" ?>>
+			</td>
+			<td>#<?= $rank++ ?></td>
+			<td><?= $record['num_matches'] ?></td>
+			<td><?= $record['team_number'] ?></td>
             <?php
-            if ($record['taken'] == "1") {
-                for ($i = 0; $i < 5; $i++) {
-                    ?>
-                    <td></td>
-                    <?php
-                }
-            } else {
-                ?>
-                <td style="text-align: center;"><?= $record['boxes_score']?>
-                    &nbsp;*<?= $record['num_matches'] ?>
-                </td>
-                <td style="text-align: center; position: relative;">
-                    <div class="meter" style="width:<?= $record['climbed_pct'] ?>%">
-                        <?= $record['climbed_pct'] ?>%
-                    </div>
-                </td>
-                <td style="text-align: center; position: relative">
-                    <div class="meter" style="width:<?= $record['baseline_pct'] ?>%">
-                        <?= $record['baseline_pct'] ?>%
-                    </div>
-                </td>
-                <td style="text-align: center; position: relative">
-                    <div class="meter" style="width:<?= $record['avg_scale'] * 6 ?>px; border-right:<?= $record['max_scale'] * 6 ?>px solid tan;">
-                        <?= round($record['avg_scale'], 1) ?>
-                    </div>
-                </td>
-                <td style="text-align: center; position: relative">
-                    <div class="meter" style="width:<?= $record['avg_exchange'] * 4 ?>px; border-right:<?= $record['max_exchange'] * 4 ?>px solid tan;">
-                        <?= round($record['avg_exchange'], 1) ?>
-                    </div>
-                </td>
-            </tr>
-            <?php
-        }
-    }
-    ?>
+            if ($record['taken']) {
+                for ($i = 0; $i < count($headings); $i++) {
+					echo '<td></td>';
+				}
+            }
+			?>
+	<?php } ?>
+	
+	<?php if (!$record['taken']) { // draw data item, and see about closing the <tr> ?>
+
+		<td style="position:relative;">
+			<?php if ($record['type']=='INT') { ?>
+				<div class="min" style="left:0; right:<?=valueToRight($record['ranking_heading'], $record['min_earned'])?>"></div>
+				<div class="avg" style="left:<?=valueToLeft($record['ranking_heading'], $record['min_earned'])?>; right:<?=valueToRight($record['ranking_heading'], $record['avg_earned'])?>"></div>
+				<div class="max" style="left:<?=valueToLeft($record['ranking_heading'], $record['avg_earned'])?>; right:<?=valueToRight($record['ranking_heading'], $record['max_earned'])?>"></div>
+				<?= round($record['avg_earned'],1) ?>
+			<?php } ?>
+			<?php if ($record['type']=='BOOLEAN') { ?>
+				<div class="pct" style="left:0; $record['avg_earned'])?>; right:<?=100*(1-$record['avg_earned'])?>%"></div>
+				<?= round($record['avg_earned'] * 100) ?>%
+			<?php } ?>
+		</td>
+
+		<?php if (isLastHeading($record['ranking_heading'])) { ?>
+			</tr>
+		<?php } ?>
+	<?php } ?>
+<?php } ?>
 </table>
 <script>
-    $(document).ready(function () {
-        $("input.taken").change(function () {
-            $.post("taken.php", {team_number: this.value, taken: this.checked ? 1 : 0});
-        });
-        $.getScript("reload.php?since=<?= @filemtime("_lastsave.txt") ?>");
-    });
+$(document).ready(function () {
+	$("input.taken").change(function () {
+		$.post("taken.php", {team_number: this.value, taken: this.checked ? 1 : 0});
+	});
+	$.getScript("reload.php?since=<?= @filemtime("_lastsave.txt") ?>");
+});
 </script>
