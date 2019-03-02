@@ -96,14 +96,6 @@ function valueToRight($heading, $value) {
 ?>
 <style>
 	body { margin:6px; }
-    .meter {
-        background-color: aqua;
-        position: absolute;
-        height: 1em;
-        z-index: 0;
-        top: 4px;
-        left: 0;
-    }
     .isreloading .reloadbutton { display:none; }
     table {
         border-collapse: collapse;

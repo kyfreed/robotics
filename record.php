@@ -102,6 +102,9 @@ $PAGE->addHead('<link rel="icon" href="favicon.ico" type="image/x-icon"/>
         <br>
         <br>
         <button class="btn btn-outline-primary" onclick="location.href = 'rank.php'">Rankings</button>
+        <br>
+        <br>
+        <button class="btn btn-outline-primary" onclick="location.href = 'alliance.php'">Alliance Builder</button>
     </div>
 </div>
 <script src="inc/jquery/jquery-3.3.1.js"></script>
