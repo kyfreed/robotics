@@ -130,7 +130,7 @@ function valueToRight($heading, $value) {
 		</td>
 		<td>#<?= $i+1 ?></td>
 		<td><?= $team['num_matches'] ?></td>
-		<td><?= $team['team'] ?></td>
+                <td><a href="http://frc.k12.tech/alliance.php?team=<?= $team['team'] ?>"><?= $team['team'] ?></a></td>
 		<?php
 		if ($team['taken']) {
 			foreach ($headings as $heading => $max) {

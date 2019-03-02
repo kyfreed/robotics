@@ -169,8 +169,8 @@ function valueToRight($heading, $value) {
 						<?= round($heading['avg_earned'],1) ?>
 					<?php } ?>
 					<?php if ($heading['type']=='BOOLEAN') { ?>
-						<div class="pct" style="left:0; $team['avg_earned'])?>; right:<?=100*(1-$heading['avg_earned'])?>%"></div>
-						<?= round($heading['avg_earned'] * 100) ?>%
+						<div class="pct" style="left:0; right:<?=100*((1-($heading['avg_earned'])/3))?>%"></div>
+						<?= round(($heading['avg_earned'] * 100)/3) ?>%
 					<?php } ?>
 				</td>
 			<?php } ?>
