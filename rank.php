@@ -5,39 +5,73 @@ include_once 'classes/init.php';
 $PAGE->addHead('<script src="inc/jquery/jquery-3.3.1.js"></script>');
 
 
-
-$ahead = array();
 $data = Sql::query("
-SELECT team_number, count(*) as num_matches, ranking_heading, taken, type,
-       min(earned) as min_earned,
-       avg(earned) as avg_earned,
-       max(earned) as max_earned
-  FROM (SELECT mta.team_number, max(t.taken) as taken, max(a.type) as type,
-			   a.ranking_heading, min(a.order_by) as order_by, sum(mta.earned) as earned
-		  FROM match_team_actions mta
-			   JOIN actions a ON mta.action_id = a.id
-			   LEFT OUTER JOIN taken t ON mta.team_number = t.team_number
-		 WHERE ifnull(a.ranking_heading,'') != ''
-		 GROUP BY mta.team_number, mta.match_number, a.ranking_heading
-		)  as x
- GROUP BY team_number, ranking_heading
- ORDER BY team_number, order_by
+	SELECT botstats.team_number as team, ifnull(a.ranking_heading,'') as heading,
+	       min(botstats.num_matches) as num_matches, taken,
+		   max(a.type) as type, min(a.order_by) as order_by,
+	       sum(min_earned) as min_earned, sum(min_points) as min_points,
+	       sum(avg_earned) as avg_earned, sum(avg_points) as avg_points,
+	       sum(max_earned) as max_earned, sum(max_points) as max_points
+	  FROM (SELECT mta.team_number, mta.action_id, count(*) as num_matches,
+				   min(mta.earned) as min_earned, min(ifnull(soverride.score, sbasic.score*mta.earned)) as min_points,
+				   avg(mta.earned) as avg_earned, avg(ifnull(soverride.score, sbasic.score*mta.earned)) as avg_points,
+				   max(mta.earned) as max_earned, max(ifnull(soverride.score, sbasic.score*mta.earned)) as max_points
+			  FROM match_team_actions mta
+			       LEFT OUTER JOIN action_scores sbasic ON sbasic.action_id = mta.action_id
+			                                           AND sbasic.earned IS NULL
+			       LEFT OUTER JOIN action_scores soverride ON soverride.action_id = mta.action_id
+			                                              AND soverride.earned = mta.earned
+			 GROUP BY mta.team_number, mta.action_id) as botstats
+			JOIN actions a ON a.id = botstats.action_id
+			LEFT OUTER JOIN taken t ON botstats.team_number = t.team_number
+	 WHERE ifnull(t.taken,0) = 0
+	 GROUP BY botstats.team_number, heading
+	 ORDER BY botstats.team_number, order_by
 ");
 
 $rank = 1; // Init counter
 
 // Calculate scale of each value based on a curve
 $headings = []; // Key is heading text, value is max ever seen
+$teams = [];
 
-foreach ($data as $i => $record) {
-	if (empty($headings[ $record['ranking_heading'] ])) { // init the heading entry
-		$headings[ $record['ranking_heading'] ] = 0;
+foreach ($data as $i => $team) {
+	// Build $headings data
+	if (empty($headings[ $team['heading'] ])) { // init the heading entry
+		$headings[ $team['heading'] ] = 0;
 	}
-	if ($headings[ $record['ranking_heading'] ] < $record['max_earned']) {
-		$headings[ $record['ranking_heading'] ] = $record['max_earned'];
+	if ($headings[ $team['heading'] ] < $team['max_earned']) {
+		$headings[ $team['heading'] ] = $team['max_earned'];
 	}
+	// Build $teams data
+	if (empty($teams[ $team['team'] ])) { // init the team entry
+		$teams[ $team['team'] ] = [
+			'team' => $team['team'],
+			'num_matches' => $team['num_matches'],
+			'taken' => $team['taken'],
+			'min_points' => 0,
+			'avg_points' => 0,
+			'max_points' => 0,
+			'headings' => [],
+		];
+	}
+	$teams[ $team['team'] ]['min_points'] += $team['min_points'];
+	$teams[ $team['team'] ]['avg_points'] += $team['avg_points'];
+	$teams[ $team['team'] ]['max_points'] += $team['max_points'];
+	$teams[ $team['team'] ]['headings'][ $team['heading'] ] = [
+		'type' => $team['type'],
+		'min_earned' => $team['min_earned'],
+		'avg_earned' => $team['avg_earned'],
+		'max_earned' => $team['max_earned'],
+	];
 }
 
+usort($teams, function($a, $b) {
+	if ($a['avg_points'] == $b['avg_points']) return 0;
+	return ($a['avg_points'] > $b['avg_points']) ? -1 : 1;
+});
+
+//prd('raw teams data (report being worked on)', $teams);
 
 function isFirstHeading($heading) {
 	GLOBAL $headings;
@@ -92,47 +126,48 @@ function valueToRight($heading, $value) {
 		<th>N</th>
 		<th>Team</th>
 		<?php foreach ($headings as $heading => $max) { ?>
-			<th><?= $heading ?></th>
+			<?php if ($heading) { ?>
+				<th><?= $heading ?></th>
+			<?php } ?>
 		<?php } ?>
 	</tr>
-<?php foreach ($data as $i => $record) { ?>
-	<?php if (isFirstHeading($record['ranking_heading'])) { ?>
-		<tr>
-            <td style="text-align:center;">
-				<input type="checkbox" value=<?= $record['team_number'] ?> class="taken"
-                       <?= $record['taken'] == "1" ? "checked" : "" ?>>
-			</td>
-			<td>#<?= $rank++ ?></td>
-			<td><?= $record['num_matches'] ?></td>
-			<td><?= $record['team_number'] ?></td>
-            <?php
-            if ($record['taken']) {
-                for ($i = 0; $i < count($headings); $i++) {
+<?php foreach ($teams as $i => $team) { ?>
+	<tr>
+		<td style="text-align:center;">
+			<input type="checkbox" value=<?= $team['team'] ?> class="taken"
+				   <?= $team['taken'] == "1" ? "checked" : "" ?>>
+		</td>
+		<td>#<?= $i+1 ?></td>
+		<td><?= $team['num_matches'] ?></td>
+		<td><?= $team['team'] ?></td>
+		<?php
+		if ($team['taken']) {
+			foreach ($headings as $heading => $max) {
+				if ($heading) {
 					echo '<td></td>';
 				}
-            }
-			?>
-	<?php } ?>
-	
-	<?php if (!$record['taken']) { // draw data item, and see about closing the <tr> ?>
-
-		<td style="position:relative;">
-			<?php if ($record['type']=='INT') { ?>
-				<div class="min" style="left:0; right:<?=valueToRight($record['ranking_heading'], $record['min_earned'])?>"></div>
-				<div class="avg" style="left:<?=valueToLeft($record['ranking_heading'], $record['min_earned'])?>; right:<?=valueToRight($record['ranking_heading'], $record['avg_earned'])?>"></div>
-				<div class="max" style="left:<?=valueToLeft($record['ranking_heading'], $record['avg_earned'])?>; right:<?=valueToRight($record['ranking_heading'], $record['max_earned'])?>"></div>
-				<?= round($record['avg_earned'],1) ?>
+			}
+			echo '</tr>';
+			continue;
+		}
+		?>
+		<?php foreach($team['headings'] as $label => $heading) { ?>
+			<?php if ($label) { ?>
+				<td style="position:relative;">
+					<?php if ($heading['type']=='INT') { ?>
+						<div class="min" style="left:0; right:<?=valueToRight($label, $heading['min_earned'])?>"></div>
+						<div class="avg" style="left:<?=valueToLeft($label, $heading['min_earned'])?>; right:<?=valueToRight($label, $heading['avg_earned'])?>"></div>
+						<div class="max" style="left:<?=valueToLeft($label, $heading['avg_earned'])?>; right:<?=valueToRight($label, $heading['max_earned'])?>"></div>
+						<?= round($heading['avg_earned'],1) ?>
+					<?php } ?>
+					<?php if ($heading['type']=='BOOLEAN') { ?>
+						<div class="pct" style="left:0; $team['avg_earned'])?>; right:<?=100*(1-$heading['avg_earned'])?>%"></div>
+						<?= round($heading['avg_earned'] * 100) ?>%
+					<?php } ?>
+				</td>
 			<?php } ?>
-			<?php if ($record['type']=='BOOLEAN') { ?>
-				<div class="pct" style="left:0; $record['avg_earned'])?>; right:<?=100*(1-$record['avg_earned'])?>%"></div>
-				<?= round($record['avg_earned'] * 100) ?>%
-			<?php } ?>
-		</td>
-
-		<?php if (isLastHeading($record['ranking_heading'])) { ?>
-			</tr>
 		<?php } ?>
-	<?php } ?>
+	</tr>
 <?php } ?>
 </table>
 <script>
