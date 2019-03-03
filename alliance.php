@@ -30,7 +30,8 @@ $data = Sql::query("
 	       max(a.type) as type, min(a.order_by) as order_by,
 	       sum(min_earned) as min_earned, sum(min_points) as min_points,
 	       sum(avg_earned) as avg_earned, sum(avg_points) as avg_points,
-	       sum(max_earned) as max_earned, sum(max_points) as max_points
+	       sum(max_earned) as max_earned, sum(max_points) as max_points,
+	       a.max as possible_earned, max(ifnull(maxoverride.score, maxbasic.score*a.max)) as possible_points
 	  FROM (SELECT teams.team_number FROM teams LEFT OUTER JOIN taken ON teams.team_number = taken.team_number WHERE ifnull(taken.taken,0) = 0) t1
     	   JOIN (SELECT teams.team_number FROM teams LEFT OUTER JOIN taken ON teams.team_number = taken.team_number WHERE ifnull(taken.taken,0) = 0) t2
 	         ON t2.team_number != t1.team_number
@@ -50,6 +51,10 @@ $data = Sql::query("
 			 GROUP BY mta.team_number, mta.action_id) as botstats
 			JOIN actions a ON a.id = botstats.action_id
 			              AND botstats.team_number IN (t1.team_number, t2.team_number, t3.team_number)
+			LEFT OUTER JOIN action_scores maxbasic ON maxbasic.action_id = a.id
+												  AND maxbasic.earned IS NULL
+			LEFT OUTER JOIN action_scores maxoverride ON maxoverride.action_id = a.id
+												     AND maxoverride.earned = a.max
 	 WHERE t1.team_number = " . Sql::val($us) . "
 	   $secondTeam
 	 GROUP BY team, heading
@@ -80,14 +85,14 @@ foreach ($data as $i => $team) {
 			'headings' => [],
 		];
 	}
-	$teams[ $team['team'] ]['min_points'] += $team['min_points'];
-	$teams[ $team['team'] ]['avg_points'] += $team['avg_points'];
-	$teams[ $team['team'] ]['max_points'] += $team['max_points'];
+	$teams[ $team['team'] ]['min_points'] += min($team['min_points'],$team['possible_points']);
+	$teams[ $team['team'] ]['avg_points'] += min($team['avg_points'],$team['possible_points']);
+	$teams[ $team['team'] ]['max_points'] += min($team['max_points'],$team['possible_points']);
 	$teams[ $team['team'] ]['headings'][ $team['heading'] ] = [
 		'type' => $team['type'],
-		'min_earned' => $team['min_earned'],
-		'avg_earned' => $team['avg_earned'],
-		'max_earned' => $team['max_earned'],
+		'min_earned' => min($team['min_earned'],$team['possible_earned']),
+		'avg_earned' => min($team['avg_earned'],$team['possible_earned']),
+		'max_earned' => min($team['max_earned'],$team['possible_earned']),
 	];
 }
 
