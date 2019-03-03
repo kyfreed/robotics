@@ -31,7 +31,7 @@ $data = Sql::query("
 	       sum(min_earned) as min_earned, sum(min_points) as min_points,
 	       sum(avg_earned) as avg_earned, sum(avg_points) as avg_points,
 	       sum(max_earned) as max_earned, sum(max_points) as max_points,
-	       a.max as possible_earned, max(ifnull(maxoverride.score, maxbasic.score*a.max)) as possible_points
+	       ifnull(a.alliance_max, a.max) as possible_earned, max(ifnull(maxoverride.score, maxbasic.score*a.max)) as possible_points
 	  FROM (SELECT teams.team_number FROM teams LEFT OUTER JOIN taken ON teams.team_number = taken.team_number WHERE ifnull(taken.taken,0) = 0) t1
     	   JOIN (SELECT teams.team_number FROM teams LEFT OUTER JOIN taken ON teams.team_number = taken.team_number WHERE ifnull(taken.taken,0) = 0) t2
 	         ON t2.team_number != t1.team_number
@@ -57,7 +57,7 @@ $data = Sql::query("
 			LEFT OUTER JOIN action_scores maxbasic ON maxbasic.action_id = a.id
 												  AND maxbasic.earned IS NULL
 			LEFT OUTER JOIN action_scores maxoverride ON maxoverride.action_id = a.id
-												     AND maxoverride.earned = a.max
+												     AND maxoverride.earned = ifnull(a.alliance_max, a.max)
 	 WHERE t1.team_number = " . Sql::val($us) . "
 	   $secondTeam
 	 GROUP BY team, heading
