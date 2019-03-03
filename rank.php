@@ -21,6 +21,9 @@ $data = Sql::query("
 			                                           AND sbasic.earned IS NULL
 			       LEFT OUTER JOIN action_scores soverride ON soverride.action_id = mta.action_id
 			                                              AND soverride.earned = mta.earned
+			       LEFT OUTER JOIN invalidated i ON i.team_number = mta.team_number
+			                                    AND i.match_number = mta.match_number
+	         WHERE i.id IS NULL
 			 GROUP BY mta.team_number, mta.action_id) as botstats
 			JOIN actions a ON a.id = botstats.action_id
 			LEFT OUTER JOIN taken t ON botstats.team_number = t.team_number
