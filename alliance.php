@@ -75,8 +75,8 @@ foreach ($data as $i => $team) {
 	if (empty($headings[ $team['heading'] ])) { // init the heading entry
 		$headings[ $team['heading'] ] = 0;
 	}
-	if ($headings[ $team['heading'] ] < $team['max_earned']) {
-		$headings[ $team['heading'] ] = $team['max_earned'];
+	if ($headings[ $team['heading'] ] < min($team['max_earned'],$team['possible_earned'])) {
+		$headings[ $team['heading'] ] = min($team['max_earned'],$team['possible_earned']);
 	}
 	// Build $teams data
 	if (empty($teams[ $team['team'] ])) { // init the team entry
