@@ -117,7 +117,7 @@ function valueToRight($heading, $value) {
 	<tr>
 		<th>Taken</th>
 		<th>Rank</th>
-		<th>N</th>
+		<th># of Matches</th>
 		<th>Team</th>
 		<?php foreach ($headings as $heading => $max) { ?>
 			<?php if ($heading) { ?>
