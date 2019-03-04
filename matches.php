@@ -113,8 +113,6 @@ function valueToRight($heading, $value) {
 <table style="width:100%">
 	<tr>
 		<th>Invalidated</th>
-		<th>Rank</th>
-		<th>N</th>
 		<th>Team</th>
 		<?php foreach ($headings as $heading => $max) { ?>
 			<?php if ($heading) { ?>
@@ -131,9 +129,7 @@ foreach ($teams as $i => $team) {
 			<input type="checkbox" value=<?= $team['team'] ?> class="invalidated"
 				   <?= !(empty(Sql::query("SELECT * FROM invalidated WHERE team_number = " . Sql::val($_REQUEST['team']) . " AND match_number = " . str_replace("'", "", explode("-", Sql::val($team['team']))[1])))) ? "checked" : "" ?>>
 		</td>
-		<td>#<?= $i+1 ?></td>
-		<td><?= $team['num_matches'] ?></td>
-                <td><a href="http://frc.k12.tech/alliance.php?team=<?= $team['team'] ?>"><?= $team['team'] ?></a></td>
+                <td><?= $team['team'] ?></td>
 		<?php
 		if ($team['invalidated']) {
 			foreach ($headings as $heading => $max) {
