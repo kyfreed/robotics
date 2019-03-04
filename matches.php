@@ -7,12 +7,12 @@ $PAGE->addHead('<script src="inc/jquery/jquery-3.3.1.js"></script>');
 
 $data = Sql::query("
 	SELECT botstats.team_number as team, ifnull(a.ranking_heading,'') as heading,
-	       min(botstats.num_matches) as num_matches, taken,
+	       min(botstats.num_matches) as num_matches,
 		   max(a.type) as type, min(a.order_by) as order_by,
 	       sum(min_earned) as min_earned, sum(min_points) as min_points,
 	       sum(avg_earned) as avg_earned, sum(avg_points) as avg_points,
 	       sum(max_earned) as max_earned, sum(max_points) as max_points
-	  FROM (SELECT mta.team_number, mta.action_id, count(*) as num_matches,
+	  FROM (SELECT concat(mta.team_number, '-', mta.match_number) as team_number, mta.team_number as team_numberi, mta.match_number as match_number, mta.action_id, count(*) as num_matches,
 				   min(mta.earned) as min_earned, min(ifnull(soverride.score, sbasic.score*mta.earned)) as min_points,
 				   avg(mta.earned) as avg_earned, avg(ifnull(soverride.score, sbasic.score*mta.earned)) as avg_points,
 				   max(mta.earned) as max_earned, max(ifnull(soverride.score, sbasic.score*mta.earned)) as max_points
@@ -21,12 +21,10 @@ $data = Sql::query("
 			                                           AND sbasic.earned IS NULL
 			       LEFT OUTER JOIN action_scores soverride ON soverride.action_id = mta.action_id
 			                                              AND soverride.earned = mta.earned
-			       LEFT OUTER JOIN invalidated i ON i.team_number = mta.team_number
-			                                    AND i.match_number = mta.match_number
-	         WHERE i.id IS NULL
-			 GROUP BY mta.team_number, mta.action_id) as botstats
+                         WHERE mta.team_number = " . Sql::val($_REQUEST["team"]) .  "                                          
+			 GROUP BY mta.team_number, mta.match_number, mta.action_id) as botstats
 			JOIN actions a ON a.id = botstats.action_id
-			LEFT OUTER JOIN taken t ON botstats.team_number = t.team_number
+			LEFT OUTER JOIN invalidated i ON botstats.team_number = i.team_number AND botstats.match_number = i.match_number
 	 GROUP BY botstats.team_number, heading
 	 ORDER BY botstats.team_number, order_by
 ");
@@ -50,7 +48,6 @@ foreach ($data as $i => $team) {
 		$teams[ $team['team'] ] = [
 			'team' => $team['team'],
 			'num_matches' => $team['num_matches'],
-			'taken' => $team['taken'],
 			'min_points' => 0,
 			'avg_points' => 0,
 			'max_points' => 0,
@@ -115,7 +112,7 @@ function valueToRight($heading, $value) {
 </style>
 <table style="width:100%">
 	<tr>
-		<th>Taken</th>
+		<th>Invalidated</th>
 		<th>Rank</th>
 		<th>N</th>
 		<th>Team</th>
@@ -125,17 +122,20 @@ function valueToRight($heading, $value) {
 			<?php } ?>
 		<?php } ?>
 	</tr>
-<?php foreach ($teams as $i => $team) { ?>
-	<tr>
+<?php 
+foreach ($teams as $i => $team) { 
+    ?>
+	
+        <tr>
 		<td style="text-align:center;">
-			<input type="checkbox" value=<?= $team['team'] ?> class="taken"
-				   <?= $team['taken'] == "1" ? "checked" : "" ?>>
+			<input type="checkbox" value=<?= $team['team'] ?> class="invalidated"
+				   <?= !(empty(Sql::query("SELECT * FROM invalidated WHERE team_number = " . Sql::val($_REQUEST['team']) . " AND match_number = " . str_replace("'", "", explode("-", Sql::val($team['team']))[1])))) ? "checked" : "" ?>>
 		</td>
 		<td>#<?= $i+1 ?></td>
-                <td><a href="/matches.php?team=<?= $team['team']?>"><?= $team['num_matches'] ?></a></td>
-                <td><a href="/alliance.php?team=<?= $team['team'] ?>"><?= $team['team'] ?></a></td>
+		<td><?= $team['num_matches'] ?></td>
+                <td><a href="http://frc.k12.tech/alliance.php?team=<?= $team['team'] ?>"><?= $team['team'] ?></a></td>
 		<?php
-		if ($team['taken']) {
+		if ($team['invalidated']) {
 			foreach ($headings as $heading => $max) {
 				if ($heading) {
 					echo '<td></td>';
@@ -148,16 +148,7 @@ function valueToRight($heading, $value) {
 		<?php foreach($team['headings'] as $label => $heading) { ?>
 			<?php if ($label) { ?>
 				<td style="position:relative;">
-					<?php if ($heading['type']=='INT') { ?>
-						<div class="min" style="left:0; right:<?=valueToRight($label, $heading['min_earned'])?>"></div>
-						<div class="avg" style="left:<?=valueToLeft($label, $heading['min_earned'])?>; right:<?=valueToRight($label, $heading['avg_earned'])?>"></div>
-						<div class="max" style="left:<?=valueToLeft($label, $heading['avg_earned'])?>; right:<?=valueToRight($label, $heading['max_earned'])?>"></div>
-						<?= round($heading['avg_earned'],1) ?>
-					<?php } ?>
-					<?php if ($heading['type']=='BOOLEAN') { ?>
-						<div class="pct" style="left:0; $team['avg_earned'])?>; right:<?=100*(1-$heading['avg_earned'])?>%"></div>
-						<?= round($heading['avg_earned'] * 100) ?>%
-					<?php } ?>
+					<?= round($heading['avg_earned'],1)?>
 				</td>
 			<?php } ?>
 		<?php } ?>
@@ -166,9 +157,9 @@ function valueToRight($heading, $value) {
 </table>
 <script>
 $(document).ready(function () {
-	$("input.taken").change(function () {
-		$.post("taken.php", {team_number: this.value, taken: this.checked ? 1 : 0});
+	$("input.invalidated").change(function () {
+            $.post("invalidate.php", {team_number: this.value.split("-")[0], match_number: this.value.split("-")[1], invalidated: this.checked ? 1 : 0});
 	});
-	$.getScript("reload.php?since=<?= @filemtime("_lastsave.txt") ?>");
+	$.getScript("reloadi.php?since=<?= @filemtime("_lastsavei.txt") ?>");
 });
 </script>
