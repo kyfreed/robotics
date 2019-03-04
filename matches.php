@@ -142,13 +142,22 @@ foreach ($teams as $i => $team) {
 		}
 		?>
 		<?php foreach($team['headings'] as $label => $heading) { ?>
-			<?php if ($label) { ?>
-				<td style="position:relative;">
-					<?= round($heading['avg_earned'],1)?>
-				</td>
-			<?php } ?>
-		<?php } ?>
-	</tr>
+			<?php if ($label) { 
+                                if($heading['type'] == 'INT'){?>
+                                    <td style="position:relative;">
+                                            <?= round($heading['avg_earned'],1)?>
+                                    </td>
+			<?php } if($heading['type'] == 'BOOLEAN'){?>
+                                    <td style="position:relative;">
+                                            <?= $heading['avg_earned'] == 1 ? "Yes" : "No"?>
+                                    </td>
+		<?php }
+                }
+                ?>
+	
+    <?php } ?>
+       </tr>
+       
 <?php } ?>
 </table>
 <script>
