@@ -29,7 +29,7 @@ $PAGE->addHead('<link rel="icon" href="favicon.ico" type="image/x-icon"/>
                 onfocus="if (getState() == 'edit') {
                         save(); setState('blank'); }">
                     <?php
-                    $times = Sql::query("SELECT * FROM matches");
+                    $times = Sql::query("SELECT * FROM matches ORDER BY number");
                     foreach ($times as $time) {
                         echo "<option value=";
                         echo $time['number'];
