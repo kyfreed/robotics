@@ -186,7 +186,7 @@ function valueToRight($heading, $value) {
 						<?= round($heading['sorting_earned'],1) ?>
 					<?php } ?>
 					<?php if ($heading['type']=='BOOLEAN') { ?>
-						<div class="pct" style="left:0; right:<?=100*((1-($heading['median_earned'])/3))?>%"></div>
+						<div class="pct" style="left:0; right:<?=100*((1-($heading['sorting_earned'])/3))?>%"></div>
 						<?= round(($heading['sorting_earned'] * 100)/3) ?>%
 					<?php } ?>
 				</td>
