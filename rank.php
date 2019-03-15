@@ -11,11 +11,14 @@ $data = Sql::query("
 		   max(a.type) as type, min(a.order_by) as order_by,
 	       sum(min_earned) as min_earned, sum(min_points) as min_points,
 	       sum(avg_earned) as avg_earned, sum(avg_points) as avg_points,
-	       sum(max_earned) as max_earned, sum(max_points) as max_points
+	       sum(max_earned) as max_earned, sum(max_points) as max_points,
+		   sum(median_earned) as median_earned, sum(median_points) as median_points
 	  FROM (SELECT mta.team_number, mta.action_id, count(*) as num_matches,
 				   min(mta.earned) as min_earned, min(ifnull(soverride.score, sbasic.score*mta.earned)) as min_points,
 				   avg(mta.earned) as avg_earned, avg(ifnull(soverride.score, sbasic.score*mta.earned)) as avg_points,
-				   max(mta.earned) as max_earned, max(ifnull(soverride.score, sbasic.score*mta.earned)) as max_points
+				   max(mta.earned) as max_earned, max(ifnull(soverride.score, sbasic.score*mta.earned)) as max_points,
+				   mid(group_concat(lpad(mta.earned,3,'0') ORDER BY mta.earned SEPARATOR ''), (ceiling(count(mta.earned)/2)*3)-2, 3) +0 as median_earned,
+				   mid(group_concat(lpad(ifnull(soverride.score, sbasic.score*mta.earned),3,'0') ORDER BY ifnull(soverride.score, sbasic.score*mta.earned) SEPARATOR ''), (ceiling(count(mta.earned)/2)*3)-2, 3) +0 as median_points
 			  FROM match_team_actions mta
 			       LEFT OUTER JOIN action_scores sbasic ON sbasic.action_id = mta.action_id
 			                                           AND sbasic.earned IS NULL
@@ -54,23 +57,29 @@ foreach ($data as $i => $team) {
 			'min_points' => 0,
 			'avg_points' => 0,
 			'max_points' => 0,
+			'median_points' => 0,
+			'sorting_points' => 0,
 			'headings' => [],
 		];
 	}
 	$teams[ $team['team'] ]['min_points'] += $team['min_points'];
 	$teams[ $team['team'] ]['avg_points'] += $team['avg_points'];
 	$teams[ $team['team'] ]['max_points'] += $team['max_points'];
+	$teams[ $team['team'] ]['median_points'] += $team['median_points'];
+	$teams[ $team['team'] ]['sorting_points'] += max($team['median_points'],$team['avg_points']);
 	$teams[ $team['team'] ]['headings'][ $team['heading'] ] = [
 		'type' => $team['type'],
 		'min_earned' => $team['min_earned'],
 		'avg_earned' => $team['avg_earned'],
 		'max_earned' => $team['max_earned'],
+		'median_earned' => $team['median_earned'],
+		'sorting_earned' => max($team['median_earned'],$team['avg_earned']),
 	];
 }
 
 usort($teams, function($a, $b) {
-	if ($a['avg_points'] == $b['avg_points']) return 0;
-	return ($a['avg_points'] > $b['avg_points']) ? -1 : 1;
+	if ($a['sorting_points'] == $b['sorting_points']) return 0;
+	return ($a['sorting_points'] > $b['sorting_points']) ? -1 : 1;
 });
 
 //prd('raw teams data (report being worked on)', $teams);
@@ -152,7 +161,7 @@ function valueToRight($heading, $value) {
 						<div class="min" style="left:0; right:<?=valueToRight($label, $heading['min_earned'])?>"></div>
 						<div class="avg" style="left:<?=valueToLeft($label, $heading['min_earned'])?>; right:<?=valueToRight($label, $heading['avg_earned'])?>"></div>
 						<div class="max" style="left:<?=valueToLeft($label, $heading['avg_earned'])?>; right:<?=valueToRight($label, $heading['max_earned'])?>"></div>
-						<?= round($heading['avg_earned'],1) ?>
+						<?= round($heading['sorting_earned'],1) ?>
 					<?php } ?>
 					<?php if ($heading['type']=='BOOLEAN') { ?>
 						<div class="pct" style="left:0; $team['avg_earned'])?>; right:<?=100*(1-$heading['avg_earned'])?>%"></div>
